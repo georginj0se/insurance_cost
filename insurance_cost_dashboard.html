@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insurance Cost Model — Risk & Pricing Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0E1520;
+    --ink-2:#161F2A;
+    --ink-3:#1E2934;
+    --line:#28333E;
+    --paper:#E7ECEF;
+    --paper-dim:#8DA0AC;
+    --teal:#4FA69D;
+    --teal-bright:#72C9BF;
+    --risk:#D2673F;
+    --risk-bright:#E68A5E;
+    --safe:#5FA873;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--teal); color:var(--ink);}
+  a{color:inherit;}
+  .num,.mono{font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums;}
+  h1,h2,h3,.display{font-family:'Newsreader',serif; font-weight:500; letter-spacing:-0.01em;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+  @media(max-width:640px){.wrap{padding:0 20px;}}
+
+  nav{position:sticky; top:0; z-index:50; background:rgba(14,21,32,0.85); backdrop-filter:blur(10px); border-bottom:1px solid var(--line);}
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; height:64px;}
+  .brand{display:flex; align-items:center; gap:10px; font-family:'Newsreader',serif; font-size:19px; font-weight:600;}
+  .brand-mark{width:18px; height:18px; border-radius:5px; background:linear-gradient(135deg, var(--teal-bright), var(--teal) 60%, #245650); box-shadow:0 0 14px rgba(79,166,157,0.4);}
+  .navlinks{display:flex; gap:28px; font-size:14px; color:var(--paper-dim);}
+  .navlinks a{text-decoration:none; transition:color .2s;}
+  .navlinks a:hover{color:var(--teal-bright);}
+  @media(max-width:640px){.navlinks{display:none;}}
+
+  .hero{position:relative; overflow:hidden; border-bottom:1px solid var(--line);}
+  #bgcanvas{position:absolute; inset:0; width:100%; height:100%; opacity:0.6;}
+  .hero-inner{position:relative; z-index:2; padding:96px 0 64px;}
+  .eyebrow-line{width:36px; height:2px; background:var(--teal); margin-bottom:22px;}
+  .hero h1{font-size:clamp(36px,5vw,58px); line-height:1.08; max-width:16ch; color:var(--paper);}
+  .hero p.lede{max-width:58ch; color:var(--paper-dim); font-size:17px; margin-top:22px;}
+  .hero-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:56px; border-radius:2px; overflow:hidden;}
+  .hstat{background:var(--ink-2); padding:22px 20px;}
+  .hstat .v{font-size:26px; font-weight:600;}
+  .hstat .l{font-size:12.5px; color:var(--paper-dim); margin-top:6px;}
+  @media(max-width:760px){.hero-stats{grid-template-columns:1fr 1fr;}}
+
+  section{padding:76px 0; border-bottom:1px solid var(--line);}
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; gap:24px; margin-bottom:36px; flex-wrap:wrap;}
+  .section-head h2{font-size:27px; color:var(--paper);}
+  .section-head .desc{color:var(--paper-dim); font-size:14.5px; max-width:44ch;}
+
+  .panel{background:var(--ink-2); border:1px solid var(--line); border-radius:3px; padding:28px;}
+  .panel h3{font-size:15px; font-weight:500; color:var(--paper-dim); margin-bottom:22px; font-family:'Inter',sans-serif;}
+  .chart-box{position:relative; height:320px;}
+
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media(max-width:860px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+  .callout{
+    display:flex; align-items:center; gap:26px; padding:26px 28px; border:1px solid var(--line);
+    border-radius:3px; background:linear-gradient(120deg, rgba(210,103,63,0.10), transparent 60%);
+    margin-bottom:20px;
+  }
+  .callout .big{font-family:'Newsreader',serif; font-size:40px; color:var(--risk-bright); font-weight:600; white-space:nowrap;}
+  .callout .txt{color:var(--paper-dim); font-size:14.5px; max-width:46ch;}
+
+  .fi-row{display:grid; grid-template-columns:140px 1fr 76px; align-items:center; gap:14px; margin-bottom:16px;}
+  .fi-row .label{font-size:13.5px; color:var(--paper-dim);}
+  .fi-track{height:8px; background:var(--ink-3); border-radius:2px; overflow:hidden;}
+  .fi-fill{height:100%; background:linear-gradient(90deg, #2d5f58, var(--teal)); border-radius:2px;}
+  .fi-row .pct{font-size:13px; text-align:right; color:var(--paper);}
+
+  .predictor{display:grid; grid-template-columns:1.05fr 0.95fr; gap:28px;}
+  @media(max-width:860px){.predictor{grid-template-columns:1fr;}}
+  .slider-group{margin-bottom:24px;}
+  .slider-group label{display:flex; justify-content:space-between; font-size:13.5px; color:var(--paper-dim); margin-bottom:10px;}
+  .slider-group label .val{color:var(--teal-bright); font-family:'JetBrains Mono',monospace;}
+  input[type=range]{-webkit-appearance:none; width:100%; height:2px; background:var(--line); border-radius:2px; outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--teal-bright); cursor:pointer; box-shadow:0 0 0 4px rgba(114,201,191,0.15); transition:box-shadow .15s;}
+  input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 6px rgba(114,201,191,0.22);}
+  input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--teal-bright); border:none; cursor:pointer;}
+
+  .toggle-row{display:flex; gap:8px; margin-bottom:24px;}
+  .toggle-row .opt{
+    flex:1; text-align:center; padding:10px 8px; font-size:13px; border:1px solid var(--line);
+    border-radius:3px; cursor:pointer; color:var(--paper-dim); transition:all .15s; background:var(--ink-3);
+  }
+  .toggle-row .opt.active{border-color:var(--teal); color:var(--teal-bright); background:rgba(79,166,157,0.1);}
+  select{
+    width:100%; padding:11px 12px; background:var(--ink-3); border:1px solid var(--line); color:var(--paper);
+    border-radius:3px; font-family:'Inter',sans-serif; font-size:13.5px; outline:none;
+  }
+
+  .predict-readout{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    padding:32px 20px; border:1px solid var(--line); border-radius:3px;
+    background:radial-gradient(ellipse at 50% 0%, rgba(79,166,157,0.08), transparent 70%);
+  }
+  .predict-readout .tag{font-size:12.5px; color:var(--paper-dim); margin-bottom:10px;}
+  .predict-readout .big{font-family:'Newsreader',serif; font-size:50px; color:var(--teal-bright); font-weight:600;}
+  .predict-readout .sub{margin-top:10px; font-size:13.5px; color:var(--paper-dim);}
+  .predict-readout .note{margin-top:22px; font-size:12.5px; color:var(--paper-dim); line-height:1.6; max-width:34ch;}
+  .predict-readout .badge{margin-top:16px; font-size:12px; padding:5px 12px; border-radius:20px; border:1px solid var(--line); color:var(--paper-dim);}
+
+  .legend-row{display:flex; gap:22px; font-size:12.5px; color:var(--paper-dim); margin-top:14px; flex-wrap:wrap;}
+  .legend-row .dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle;}
+
+  .mini-stats{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px;}
+  .mini-stats div{font-size:12.5px; color:var(--paper-dim);}
+  .mini-stats .v{color:var(--paper); font-size:15px; font-family:'JetBrains Mono',monospace;}
+
+  footer{padding:44px 0; text-align:left;}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; color:var(--paper-dim); font-size:12.5px;}
+
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-track{background:var(--ink);}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:5px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark"></span>Insurance Cost Model</div>
+    <div class="navlinks">
+      <a href="#forecast">Forecast</a>
+      <a href="#drivers">Drivers</a>
+      <a href="#population">Population</a>
+      <a href="#estimate">Estimate</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <canvas id="bgcanvas"></canvas>
+  <div class="hero-inner wrap">
+    <div class="eyebrow-line"></div>
+    <h1>What actually drives what a policy costs</h1>
+    <p class="lede">A linear regression trained on 1,338 policyholders — age, sex, BMI, children, smoking status and region — reconstructs each person's annual medical charges from six intake questions. Here's what it learned, and how well it holds up on people it never saw.</p>
+    <div class="hero-stats" id="heroStats"></div>
+  </div>
+</div>
+
+<section id="forecast">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Actual vs. estimated charges</h2>
+      <div class="desc">Every point is one held-out policyholder — 268 people, 20% of the data, set aside from training. Points near the diagonal are where the model gets it right.</div>
+    </div>
+    <div class="panel">
+      <div class="chart-box"><canvas id="scatterChart"></canvas></div>
+      <div class="legend-row">
+        <span><span class="dot" style="background:var(--teal)"></span>Held-out policyholder</span>
+        <span><span class="dot" style="background:var(--paper-dim)"></span>Perfect estimate</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="drivers">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>What moves the price</h2>
+      <div class="desc">The dollar effect of each factor, holding the others constant.</div>
+    </div>
+    <div class="callout">
+      <div class="big num" id="smokerEffect">—</div>
+      <div class="txt">is the average difference a smoker pays over a non-smoker with the same age, BMI, children and region — by far the single largest factor in the model.</div>
+    </div>
+    <div class="panel">
+      <h3>Remaining factors, per unit</h3>
+      <div id="fiList"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Where smoking changes the curve</h2>
+      <div class="desc">BMI against annual charges, split by smoking status — the same BMI costs very differently depending on this one factor.</div>
+    </div>
+    <div class="panel">
+      <div class="chart-box"><canvas id="bmiScatter"></canvas></div>
+      <div class="legend-row">
+        <span><span class="dot" style="background:var(--risk)"></span>Smoker</span>
+        <span><span class="dot" style="background:var(--teal)"></span>Non-smoker</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="population">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Who's in the data</h2>
+      <div class="desc">Average annual charges across the groups in this dataset.</div>
+    </div>
+    <div class="grid-3">
+      <div class="panel">
+        <h3>By smoking status</h3>
+        <div class="chart-box" style="height:220px;"><canvas id="barSmoker"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>By region</h3>
+        <div class="chart-box" style="height:220px;"><canvas id="barRegion"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>By number of children</h3>
+        <div class="chart-box" style="height:220px;"><canvas id="barChildren"></canvas></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:20px;">
+      <h3>Charges across the full population</h3>
+      <div class="chart-box"><canvas id="histChart"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section id="estimate">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Estimate a policy</h2>
+      <div class="desc">Set the six intake values — this runs the exact trained regression, not an approximation.</div>
+    </div>
+    <div class="predictor">
+      <div class="panel" id="inputPanel"></div>
+      <div class="predict-readout">
+        <div class="tag">Estimated annual charges</div>
+        <div class="big num" id="predictedValue">—</div>
+        <div class="sub num" id="predictedPct">—</div>
+        <div class="mini-stats">
+          <div>Population mean<br><span class="v" id="popMean"></span></div>
+          <div>Population range<br><span class="v" id="popRange"></span></div>
+        </div>
+        <div class="note">Computed from the same coefficients the model above was scored with, so this is what it would actually predict for this person.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="border-bottom:none;">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Method</h2>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <p style="color:var(--paper-dim); font-size:14.5px;">A single linear regression fit on an 80/20 train-test split. Sex, smoking status and region are encoded as numbers before fitting; the six coefficients above are read directly off that fitted model, so each one has a literal dollar meaning rather than a relative importance score.</p>
+      </div>
+      <div class="panel">
+        <div class="fi-row" style="grid-template-columns:1fr auto;"><span class="label">Policyholders</span><span class="pct" id="mRows"></span></div>
+        <div class="fi-row" style="grid-template-columns:1fr auto;"><span class="label">Train / test split</span><span class="pct" id="mSplit"></span></div>
+        <div class="fi-row" style="grid-template-columns:1fr auto;"><span class="label">R² — training data</span><span class="pct" id="mR2train"></span></div>
+        <div class="fi-row" style="grid-template-columns:1fr auto;"><span class="label">R² — held-out data</span><span class="pct" id="mR2test"></span></div>
+        <div class="fi-row" style="grid-template-columns:1fr auto; margin-bottom:0;"><span class="label">Mean absolute error</span><span class="pct" id="mMAE"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Insurance Cost Model — built on insurance.csv</span>
+    <span>For research and illustration, not a real quote.</span>
+  </div>
+</footer>
+
+<script>
+const DATA = {"r2_train": 0.751505643411174, "r2_test": 0.7447273869684077, "mae_test": 4267.213826730733, "rmse_test": 6191.690842285234, "coef": {"age": 251.40512195917316, "sex": 26.117159659128994, "bmi": 330.6463715684856, "children": 580.2743829604738, "smoker": -23928.101710611194, "region": 212.22242728332907}, "intercept": 11357.668742540933, "n_rows": 1338, "n_train": 1070, "n_test": 268, "feature_ranges": {"age": [18, 64, 39.20702541106129], "bmi": [15.96, 53.13, 30.66339686098655], "children": [0, 5, 1.0949177877429]}, "charges_range": [1121.8739, 63770.42801, 13270.422265141257], "actual": [2395.17, 11286.54, 9617.66, 1719.44, 8891.14, 5662.23, 12609.89, 2196.47, 14254.61, 7209.49, 12222.9, 2219.45, 19444.27, 1121.87, 26392.26, 12925.89, 3645.09, 5327.4, 18972.49, 2203.47, 11840.78, 2597.78, 40182.25, 22331.57, 37484.45, 10577.09, 3206.49, 8944.12, 3578.0, 3176.82, 5397.62, 3956.07, 4931.65, 4239.89, 14478.33, 1631.67, 38792.69, 20420.6, 35147.53, 27000.98, 2117.34, 34472.84, 7419.48, 2007.94, 6781.35, 5375.04, 10264.44, 3471.41, 4266.17, 20630.28, 4915.06, 1242.82, 17748.51, 43921.18, 6496.89, 11538.42, 1969.61, 7160.33, 2154.36, 40273.65, 14349.85, 2103.08, 2850.68, 42560.43, 1241.57, 11944.59, 21797.0, 1880.07, 13457.96, 7443.64, 10704.47, 36580.28, 30284.64, 6571.54, 12741.17, 9872.7, 2020.18, 1909.53, 2498.41, 12622.18, 10791.96, 9964.06, 1163.46, 17942.11, 10807.49, 3736.46, 46599.11, 12523.6, 9361.33, 5124.19, 9778.35, 13822.8, 10702.64, 29186.48, 4564.19, 16450.89, 2136.88, 8283.68, 4544.23, 19350.37, 3393.36, 1391.53, 4766.02, 13470.8, 5373.36, 12957.12, 6986.7, 3972.92, 13228.85, 24106.91, 2801.26, 13451.12, 15518.18, 11396.9, 2200.83, 13415.04, 6775.96, 19673.34, 11842.44, 34672.15, 7147.1, 7045.5, 9549.57, 31620.0, 3238.44, 16115.3, 26926.51, 10118.42, 8017.06, 5138.26, 9566.99, 2250.84, 1748.77, 3537.7, 7281.51, 5594.85, 2689.5, 36219.41, 41661.6, 4032.24, 34828.65, 24059.68, 3556.92, 9304.7, 5488.26, 43896.38, 7265.7, 9174.14, 7421.19, 1964.78, 4149.74, 4504.66, 1631.82, 9850.43, 10231.5, 13887.97, 3857.76, 18648.42, 3353.47, 11658.38, 14901.52, 12928.79, 7441.05, 3044.21, 4189.11, 7640.31, 15555.19, 17904.53, 14394.56, 16586.5, 40904.2, 9634.54, 58571.07, 24873.38, 23045.57, 7623.52, 4827.9, 21344.85, 7152.67, 6311.95, 1769.53, 1632.04, 21472.48, 4433.92, 1146.8, 33750.29, 3268.85, 2464.62, 3201.25, 40720.55, 9855.13, 3392.37, 5920.1, 16657.72, 3490.55, 48675.52, 52590.83, 11879.1, 17043.34, 9722.77, 45863.21, 6389.38, 2055.32, 2710.83, 14394.4, 11743.93, 2104.11, 41999.52, 9563.03, 27117.99, 1837.24, 36950.26, 5458.05, 4500.34, 14256.19, 14692.67, 19199.94, 1832.09, 11482.63, 6457.84, 48517.56, 6799.46, 42111.66, 15820.7, 13429.04, 19521.97, 9432.93, 8211.1, 11033.66, 4449.46, 11729.68, 3847.67, 6238.3, 2045.69, 23244.79, 55135.4, 11264.54, 7371.77, 1708.93, 6686.43, 9414.92, 1727.54, 11150.78, 2302.3, 24915.22, 22218.11, 12475.35, 16577.78, 10269.46, 4005.42, 7160.09, 2203.74, 6113.23, 10096.97, 14235.07, 3021.81, 6196.45, 1702.46, 1694.8, 1253.94, 18246.5, 39725.52, 44641.2, 1727.79, 11566.3, 29141.36, 8978.19, 23967.38], "predicted": [1520.59, 11570.59, 10082.44, 2246.22, 7881.28, 11081.5, 3538.25, 698.03, 12223.49, 9611.93, 11657.51, 4891.05, 29947.5, -370.84, 12401.36, 13243.22, 3814.42, 7883.39, 29431.34, 2362.84, 12505.5, 2256.75, 34468.02, 31742.49, 30306.19, 9027.76, 1923.87, 15247.1, 6542.61, 2104.8, 9484.37, 5794.92, 4425.27, 5015.38, 9579.45, 4601.75, 29875.58, 6797.04, 27239.26, 13999.09, 313.55, 28415.75, 7886.55, 1478.09, 10273.29, 8003.09, 11612.15, 8175.96, 10753.45, 13802.18, 5740.9, -737.13, 26346.22, 37192.66, 7364.1, 17845.52, 1412.64, 11042.48, 2159.34, 34066.16, 11646.83, 874.99, 4020.67, 35913.04, -1034.72, 13963.49, 14840.87, 3395.12, 12935.74, 11199.39, 11579.9, 16132.94, 10183.88, 9888.34, 15157.36, 12377.95, 4387.78, 3680.09, 5347.06, 13291.02, 9158.24, 11935.83, 9522.1, 27668.11, 12639.34, 3989.83, 38550.36, 11191.86, 8088.76, 11068.02, 10956.55, 15139.02, 11077.77, 13045.03, 5283.34, 25958.03, 4962.44, 10543.57, 2709.96, 29007.8, 6350.41, 3478.11, 2661.51, 15990.91, 7905.8, 10304.74, 9962.87, 5066.25, 14869.36, 33752.17, 3761.89, 11521.18, 24631.43, 14803.95, 1734.61, 10401.4, 9202.6, 6288.04, 11838.15, 28871.89, 6579.84, 7172.55, 15845.71, 16235.15, 8251.22, 26323.6, 35303.75, 11847.14, 8073.11, 9326.25, 8467.39, 2933.99, 3322.87, 4683.93, 8307.29, 8002.17, 7053.31, 28990.07, 35181.28, 4167.16, 27886.15, 4144.07, 6628.27, 13311.51, 8025.5, 36451.54, 11784.84, 11347.89, 8294.9, 524.39, 6503.28, 7165.35, 4638.12, 11666.09, 11630.94, 15478.53, 5856.28, 27679.02, 1979.27, 11476.47, 16974.38, 13934.27, 9520.81, 2269.29, 4396.04, 8922.7, 19309.54, 28276.86, 12676.31, 2965.73, 32305.96, 13107.15, 32778.04, 34349.44, 11161.9, 7576.17, 2633.64, 2362.84, 11656.07, 7884.51, 2926.11, 1166.95, 31658.17, 7134.59, 5557.65, 27325.27, 6609.81, 2654.92, 7915.91, 35382.86, 7986.36, 4319.95, 9477.98, 26872.47, 5713.52, 40198.17, 37499.4, 12998.97, 26841.49, 11921.07, 37470.07, 7403.67, 4214.2, 1961.81, 14048.97, 14018.66, 2180.0, 35697.73, 12791.23, 8748.62, 1132.66, 30647.69, 3495.7, 3469.35, 12600.42, 15082.04, 29668.01, -90.73, 3183.28, 8454.89, 39754.79, 7972.36, 35120.73, 27504.76, 13731.0, 28889.96, 16499.48, 7606.96, 16113.44, 7121.06, 10218.0, 3711.07, 8798.99, 1921.17, 32853.72, 32064.69, 14808.74, 11403.05, 1017.44, 6282.1, 11157.27, 4173.89, 10981.18, 1055.77, 34880.39, 32433.91, 10508.03, 26355.22, 12805.79, 1722.14, 11198.49, 2425.66, 7497.57, 10638.47, 17092.44, 5779.82, 10521.07, -521.72, -2343.58, 1908.04, 27783.95, 33997.02, 37349.84, -1669.89, 15722.42, 36968.06, 12987.36, 34174.92], "age_hist": {"counts": [194, 112, 111, 106, 101, 77, 108, 116, 115, 108, 99, 91], "edges": [18.0, 21.8, 25.7, 29.5, 33.3, 37.2, 41.0, 44.8, 48.7, 52.5, 56.3, 60.2, 64.0]}, "bmi_hist": {"counts": [25, 78, 157, 242, 257, 239, 171, 98, 42, 20, 6, 3], "edges": [16.0, 19.1, 22.2, 25.3, 28.4, 31.4, 34.5, 37.6, 40.7, 43.8, 46.9, 50.0, 53.1]}, "charges_hist": {"counts": [364, 279, 250, 112, 70, 56, 38, 15, 35, 44, 30, 29, 10, 2, 1, 3], "edges": [1122.0, 5037.0, 8953.0, 12868.0, 16784.0, 20700.0, 24615.0, 28531.0, 32446.0, 36362.0, 40277.0, 44193.0, 48108.0, 52024.0, 55939.0, 59855.0, 63770.0]}, "avg_by_smoker": {"no": 8434.27, "yes": 32050.23}, "avg_by_region": {"northeast": 13406.38, "northwest": 12417.58, "southeast": 14735.41, "southwest": 12346.94}, "avg_by_sex": {"female": 12569.58, "male": 13956.75}, "avg_by_children": {"0": 12365.98, "1": 12731.17, "2": 15073.56, "3": 15355.32, "4": 13850.66, "5": 8786.04}, "count_smoker": {"no": 1064, "yes": 274}, "count_region": {"southeast": 364, "southwest": 325, "northwest": 325, "northeast": 324}, "count_sex": {"male": 676, "female": 662}, "scatter_bmi": {"smoker": [{"x": 34.4, "y": 38746.0}, {"x": 26.4, "y": 19539.0}, {"x": 39.0, "y": 40932.0}, {"x": 22.6, "y": 24873.0}, {"x": 31.9, "y": 33750.0}, {"x": 25.9, "y": 24181.0}, {"x": 35.3, "y": 36837.0}, {"x": 25.7, "y": 17942.0}, {"x": 30.5, "y": 39726.0}, {"x": 31.7, "y": 34672.0}, {"x": 27.4, "y": 17179.0}, {"x": 32.6, "y": 40941.0}, {"x": 28.5, "y": 18328.0}, {"x": 20.5, "y": 14572.0}, {"x": 34.5, "y": 60021.0}, {"x": 38.1, "y": 58571.0}, {"x": 35.0, "y": 41034.0}, {"x": 32.8, "y": 39125.0}, {"x": 45.5, "y": 42112.0}, {"x": 43.9, "y": 46201.0}, {"x": 28.0, "y": 20235.0}, {"x": 23.8, "y": 24107.0}, {"x": 24.1, "y": 15818.0}, {"x": 24.4, "y": 18259.0}, {"x": 34.8, "y": 34780.0}, {"x": 23.0, "y": 27038.0}, {"x": 28.3, "y": 18034.0}, {"x": 31.8, "y": 43814.0}, {"x": 24.4, "y": 19362.0}, {"x": 40.4, "y": 43896.0}, {"x": 38.2, "y": 36308.0}, {"x": 35.8, "y": 38283.0}, {"x": 25.3, "y": 18972.0}, {"x": 37.0, "y": 49578.0}, {"x": 35.2, "y": 38709.0}, {"x": 19.9, "y": 22413.0}, {"x": 23.7, "y": 25679.0}, {"x": 29.1, "y": 18246.0}, {"x": 41.8, "y": 47270.0}, {"x": 22.9, "y": 23245.0}, {"x": 31.3, "y": 47291.0}, {"x": 31.0, "y": 35596.0}, {"x": 30.2, "y": 38999.0}, {"x": 20.9, "y": 21196.0}, {"x": 28.3, "y": 17081.0}, {"x": 42.9, "y": 47463.0}, {"x": 23.0, "y": 17362.0}, {"x": 24.3, "y": 24870.0}, {"x": 33.5, "y": 34618.0}, {"x": 28.1, "y": 22332.0}, {"x": 36.4, "y": 48518.0}, {"x": 35.3, "y": 40104.0}, {"x": 39.0, "y": 42983.0}, {"x": 38.9, "y": 44203.0}, {"x": 36.8, "y": 47897.0}, {"x": 28.3, "y": 17469.0}, {"x": 19.1, "y": 16776.0}, {"x": 26.9, "y": 21774.0}, {"x": 28.0, "y": 20774.0}, {"x": 19.3, "y": 15821.0}, {"x": 17.3, "y": 12829.0}, {"x": 27.8, "y": 23065.0}, {"x": 36.2, "y": 41676.0}, {"x": 35.8, "y": 40274.0}, {"x": 33.3, "y": 36125.0}, {"x": 46.2, "y": 45863.0}, {"x": 26.0, "y": 16451.0}, {"x": 27.7, "y": 29523.0}, {"x": 36.4, "y": 51195.0}, {"x": 22.9, "y": 21099.0}, {"x": 24.4, "y": 21224.0}, {"x": 27.4, "y": 24394.0}, {"x": 24.6, "y": 17496.0}, {"x": 30.0, "y": 33308.0}, {"x": 28.3, "y": 32787.0}, {"x": 34.4, "y": 37743.0}, {"x": 30.9, "y": 46718.0}, {"x": 36.1, "y": 42211.0}, {"x": 34.9, "y": 34829.0}, {"x": 25.3, "y": 21771.0}], "nonsmoker": [{"x": 35.5, "y": 1646.0}, {"x": 31.5, "y": 11353.0}, {"x": 37.0, "y": 8799.0}, {"x": 36.6, "y": 10381.0}, {"x": 22.3, "y": 2103.0}, {"x": 37.5, "y": 9305.0}, {"x": 28.6, "y": 11658.0}, {"x": 26.0, "y": 3071.0}, {"x": 24.5, "y": 12630.0}, {"x": 46.7, "y": 11538.0}, {"x": 32.3, "y": 6338.0}, {"x": 29.0, "y": 7051.0}, {"x": 34.4, "y": 1137.0}, {"x": 30.2, "y": 8968.0}, {"x": 22.7, "y": 21984.0}, {"x": 27.7, "y": 6414.0}, {"x": 36.5, "y": 28288.0}, {"x": 33.2, "y": 13463.0}, {"x": 33.2, "y": 9723.0}, {"x": 27.7, "y": 8027.0}, {"x": 26.6, "y": 8444.0}, {"x": 30.1, "y": 2203.0}, {"x": 28.4, "y": 6665.0}, {"x": 27.4, "y": 8606.0}, {"x": 33.3, "y": 8284.0}, {"x": 32.9, "y": 5375.0}, {"x": 25.5, "y": 3645.0}, {"x": 35.8, "y": 11674.0}, {"x": 27.0, "y": 11738.0}, {"x": 24.3, "y": 9863.0}, {"x": 39.0, "y": 11856.0}, {"x": 33.0, "y": 4349.0}, {"x": 34.4, "y": 11744.0}, {"x": 27.8, "y": 19749.0}, {"x": 37.1, "y": 12347.0}, {"x": 23.6, "y": 4932.0}, {"x": 28.6, "y": 30260.0}, {"x": 35.3, "y": 27724.0}, {"x": 18.1, "y": 9644.0}, {"x": 28.8, "y": 14394.0}, {"x": 31.6, "y": 12558.0}, {"x": 29.7, "y": 11881.0}, {"x": 23.7, "y": 2353.0}, {"x": 25.7, "y": 9102.0}, {"x": 44.2, "y": 3994.0}, {"x": 35.1, "y": 12645.0}, {"x": 24.2, "y": 22396.0}, {"x": 43.0, "y": 1149.0}, {"x": 35.5, "y": 3367.0}, {"x": 33.5, "y": 13143.0}, {"x": 28.1, "y": 2690.0}, {"x": 37.0, "y": 12741.0}, {"x": 32.3, "y": 8765.0}, {"x": 28.7, "y": 10264.0}, {"x": 24.0, "y": 22192.0}, {"x": 24.6, "y": 2709.0}, {"x": 28.9, "y": 1743.0}, {"x": 24.6, "y": 12480.0}, {"x": 30.0, "y": 13352.0}, {"x": 27.4, "y": 2789.0}, {"x": 27.9, "y": 2867.0}, {"x": 25.3, "y": 11071.0}, {"x": 26.2, "y": 10494.0}, {"x": 16.8, "y": 3167.0}, {"x": 33.5, "y": 12270.0}, {"x": 24.8, "y": 10942.0}, {"x": 29.3, "y": 1978.0}, {"x": 25.3, "y": 7045.0}, {"x": 33.3, "y": 10371.0}, {"x": 33.1, "y": 7749.0}, {"x": 33.1, "y": 13920.0}, {"x": 32.2, "y": 8871.0}, {"x": 22.6, "y": 1628.0}, {"x": 29.5, "y": 9488.0}, {"x": 25.8, "y": 9861.0}, {"x": 37.5, "y": 12266.0}, {"x": 36.5, "y": 12236.0}, {"x": 23.5, "y": 6402.0}, {"x": 34.0, "y": 11357.0}, {"x": 24.7, "y": 1737.0}, {"x": 30.2, "y": 7441.0}, {"x": 37.3, "y": 2219.0}, {"x": 29.8, "y": 11287.0}, {"x": 27.7, "y": 4415.0}, {"x": 29.9, "y": 3982.0}, {"x": 25.2, "y": 1632.0}, {"x": 41.3, "y": 15555.0}, {"x": 26.8, "y": 12610.0}, {"x": 28.7, "y": 1254.0}, {"x": 42.4, "y": 6666.0}, {"x": 25.1, "y": 14255.0}, {"x": 39.7, "y": 19497.0}, {"x": 31.9, "y": 2262.0}, {"x": 25.6, "y": 8932.0}, {"x": 35.6, "y": 10737.0}, {"x": 30.7, "y": 5977.0}, {"x": 22.3, "y": 7147.0}, {"x": 34.3, "y": 9563.0}, {"x": 25.4, "y": 13047.0}, {"x": 37.1, "y": 7740.0}, {"x": 20.9, "y": 1832.0}, {"x": 27.8, "y": 7145.0}, {"x": 27.6, "y": 24603.0}, {"x": 20.6, "y": 1732.0}, {"x": 25.6, "y": 1633.0}, {"x": 38.3, "y": 1632.0}, {"x": 18.3, "y": 9991.0}, {"x": 38.3, "y": 7935.0}, {"x": 31.7, "y": 14043.0}, {"x": 34.3, "y": 5934.0}, {"x": 36.0, "y": 14314.0}, {"x": 31.8, "y": 13607.0}, {"x": 27.6, "y": 10595.0}, {"x": 29.4, "y": 1719.0}, {"x": 32.6, "y": 7955.0}, {"x": 35.2, "y": 1728.0}, {"x": 23.4, "y": 6686.0}, {"x": 38.1, "y": 7153.0}, {"x": 30.9, "y": 3877.0}, {"x": 37.5, "y": 33472.0}, {"x": 32.4, "y": 11879.0}, {"x": 40.1, "y": 7804.0}, {"x": 26.9, "y": 5970.0}, {"x": 32.3, "y": 9964.0}, {"x": 27.7, "y": 9958.0}, {"x": 27.4, "y": 9447.0}, {"x": 34.4, "y": 1827.0}, {"x": 30.2, "y": 3704.0}, {"x": 32.0, "y": 11947.0}, {"x": 30.0, "y": 2904.0}, {"x": 33.2, "y": 6129.0}, {"x": 36.9, "y": 1534.0}, {"x": 29.2, "y": 10436.0}, {"x": 27.2, "y": 11073.0}, {"x": 27.7, "y": 5469.0}, {"x": 29.8, "y": 5152.0}, {"x": 34.8, "y": 3557.0}, {"x": 21.5, "y": 3353.0}, {"x": 27.3, "y": 6555.0}, {"x": 35.2, "y": 2417.0}, {"x": 32.4, "y": 14591.0}, {"x": 17.3, "y": 3733.0}, {"x": 43.3, "y": 5847.0}, {"x": 29.6, "y": 12731.0}, {"x": 22.0, "y": 13616.0}, {"x": 29.9, "y": 8988.0}, {"x": 41.3, "y": 7651.0}, {"x": 22.5, "y": 3594.0}, {"x": 28.1, "y": 2156.0}, {"x": 45.3, "y": 8570.0}, {"x": 19.9, "y": 7527.0}, {"x": 29.6, "y": 9222.0}, {"x": 32.3, "y": 14120.0}, {"x": 20.4, "y": 3260.0}, {"x": 24.5, "y": 2709.0}, {"x": 19.5, "y": 6933.0}, {"x": 20.6, "y": 9265.0}, {"x": 29.0, "y": 7244.0}, {"x": 35.1, "y": 2135.0}, {"x": 24.4, "y": 11520.0}, {"x": 28.1, "y": 8233.0}, {"x": 34.2, "y": 6290.0}, {"x": 37.1, "y": 7372.0}, {"x": 23.0, "y": 12094.0}, {"x": 34.1, "y": 23563.0}, {"x": 29.3, "y": 6458.0}, {"x": 26.7, "y": 1616.0}, {"x": 34.1, "y": 6600.0}, {"x": 26.2, "y": 7047.0}, {"x": 40.5, "y": 1984.0}, {"x": 28.7, "y": 11455.0}, {"x": 27.9, "y": 4138.0}, {"x": 33.6, "y": 17128.0}, {"x": 34.2, "y": 3988.0}, {"x": 35.2, "y": 4671.0}, {"x": 29.0, "y": 10796.0}, {"x": 33.7, "y": 1136.0}, {"x": 30.6, "y": 2460.0}, {"x": 32.8, "y": 12269.0}, {"x": 18.9, "y": 4828.0}, {"x": 27.8, "y": 1636.0}, {"x": 23.4, "y": 1970.0}, {"x": 29.7, "y": 4357.0}, {"x": 33.4, "y": 10796.0}, {"x": 36.9, "y": 13888.0}, {"x": 33.6, "y": 3580.0}, {"x": 27.8, "y": 14001.0}, {"x": 19.0, "y": 6753.0}, {"x": 28.9, "y": 12097.0}, {"x": 29.9, "y": 10215.0}, {"x": 30.6, "y": 1640.0}, {"x": 39.4, "y": 8343.0}, {"x": 30.0, "y": 4074.0}, {"x": 47.5, "y": 8084.0}, {"x": 39.5, "y": 2027.0}, {"x": 36.9, "y": 31620.0}, {"x": 32.0, "y": 1982.0}, {"x": 33.0, "y": 20781.0}, {"x": 35.3, "y": 18806.0}, {"x": 32.0, "y": 8551.0}, {"x": 32.2, "y": 18218.0}, {"x": 37.9, "y": 14211.0}, {"x": 37.4, "y": 10960.0}, {"x": 26.9, "y": 4441.0}, {"x": 25.7, "y": 12143.0}, {"x": 33.3, "y": 10560.0}, {"x": 29.4, "y": 2897.0}, {"x": 39.8, "y": 2755.0}, {"x": 20.4, "y": 1625.0}, {"x": 29.8, "y": 8219.0}, {"x": 26.3, "y": 6941.0}, {"x": 33.4, "y": 8241.0}, {"x": 36.6, "y": 2137.0}, {"x": 26.1, "y": 5228.0}, {"x": 26.6, "y": 10356.0}, {"x": 21.4, "y": 10065.0}, {"x": 37.3, "y": 1141.0}, {"x": 24.0, "y": 13012.0}, {"x": 33.7, "y": 7446.0}, {"x": 30.1, "y": 8410.0}, {"x": 32.3, "y": 6987.0}, {"x": 29.8, "y": 6406.0}, {"x": 22.1, "y": 5354.0}, {"x": 27.6, "y": 1252.0}, {"x": 36.3, "y": 8528.0}, {"x": 27.5, "y": 5261.0}, {"x": 32.4, "y": 2362.0}, {"x": 30.8, "y": 9415.0}, {"x": 31.6, "y": 10118.0}, {"x": 38.0, "y": 12646.0}, {"x": 33.3, "y": 20879.0}, {"x": 30.3, "y": 2633.0}, {"x": 28.0, "y": 6067.0}, {"x": 30.5, "y": 10704.0}, {"x": 24.7, "y": 30167.0}, {"x": 40.5, "y": 13831.0}, {"x": 28.9, "y": 9870.0}, {"x": 34.9, "y": 2899.0}, {"x": 32.9, "y": 7050.0}, {"x": 29.6, "y": 24672.0}, {"x": 23.5, "y": 3206.0}, {"x": 25.5, "y": 7077.0}, {"x": 28.3, "y": 5484.0}, {"x": 20.4, "y": 8605.0}, {"x": 31.2, "y": 3944.0}, {"x": 32.2, "y": 6776.0}, {"x": 32.1, "y": 4923.0}, {"x": 25.8, "y": 5266.0}, {"x": 26.5, "y": 4340.0}, {"x": 30.1, "y": 1132.0}, {"x": 16.8, "y": 6641.0}, {"x": 36.6, "y": 4950.0}, {"x": 29.7, "y": 1770.0}, {"x": 39.5, "y": 2481.0}, {"x": 29.7, "y": 4400.0}, {"x": 34.5, "y": 13823.0}, {"x": 18.3, "y": 13204.0}, {"x": 31.4, "y": 9290.0}, {"x": 31.8, "y": 13881.0}, {"x": 41.2, "y": 11034.0}, {"x": 40.7, "y": 9876.0}, {"x": 29.6, "y": 3947.0}, {"x": 31.6, "y": 7358.0}, {"x": 23.2, "y": 11831.0}, {"x": 45.9, "y": 3693.0}, {"x": 26.7, "y": 14383.0}, {"x": 25.0, "y": 6594.0}, {"x": 22.5, "y": 4429.0}, {"x": 32.4, "y": 13019.0}, {"x": 38.0, "y": 11366.0}, {"x": 30.9, "y": 23046.0}, {"x": 28.9, "y": 2251.0}, {"x": 29.7, "y": 32109.0}, {"x": 25.8, "y": 3161.0}, {"x": 25.7, "y": 3280.0}, {"x": 40.3, "y": 5709.0}, {"x": 33.7, "y": 15162.0}, {"x": 26.4, "y": 14395.0}, {"x": 32.1, "y": 2131.0}, {"x": 23.7, "y": 3484.0}, {"x": 29.5, "y": 7640.0}, {"x": 27.8, "y": 4454.0}, {"x": 25.7, "y": 2711.0}, {"x": 39.3, "y": 3501.0}, {"x": 37.1, "y": 10714.0}, {"x": 17.7, "y": 2681.0}, {"x": 40.2, "y": 2217.0}, {"x": 23.5, "y": 10107.0}, {"x": 30.9, "y": 8163.0}, {"x": 31.2, "y": 10339.0}, {"x": 42.7, "y": 9801.0}, {"x": 27.6, "y": 2523.0}, {"x": 28.9, "y": 4338.0}, {"x": 23.2, "y": 10157.0}, {"x": 48.1, "y": 9433.0}, {"x": 30.2, "y": 8825.0}, {"x": 33.7, "y": 5012.0}, {"x": 32.0, "y": 8116.0}, {"x": 24.5, "y": 6710.0}, {"x": 41.5, "y": 9504.0}, {"x": 33.5, "y": 5700.0}, {"x": 27.4, "y": 25657.0}, {"x": 21.1, "y": 6653.0}, {"x": 32.3, "y": 10269.0}, {"x": 30.5, "y": 15020.0}, {"x": 30.4, "y": 2742.0}, {"x": 46.5, "y": 6436.0}, {"x": 30.3, "y": 11938.0}, {"x": 34.2, "y": 7262.0}, {"x": 36.7, "y": 28469.0}, {"x": 38.1, "y": 20463.0}, {"x": 43.4, "y": 12574.0}, {"x": 26.0, "y": 3736.0}, {"x": 39.8, "y": 4796.0}, {"x": 20.1, "y": 12032.0}, {"x": 33.3, "y": 8334.0}, {"x": 25.2, "y": 9095.0}, {"x": 40.9, "y": 11566.0}, {"x": 33.3, "y": 1880.0}, {"x": 28.8, "y": 2457.0}]}, "scatter_age": {"smoker": [{"x": 31, "y": 38746.0}, {"x": 37, "y": 19539.0}, {"x": 30, "y": 40932.0}, {"x": 53, "y": 24873.0}, {"x": 19, "y": 33750.0}, {"x": 48, "y": 24181.0}, {"x": 30, "y": 36837.0}, {"x": 21, "y": 17942.0}, {"x": 45, "y": 39726.0}, {"x": 28, "y": 34672.0}, {"x": 18, "y": 17179.0}, {"x": 43, "y": 40941.0}, {"x": 23, "y": 18328.0}, {"x": 24, "y": 14572.0}, {"x": 52, "y": 60021.0}, {"x": 31, "y": 58571.0}, {"x": 43, "y": 41034.0}, {"x": 40, "y": 39125.0}, {"x": 25, "y": 42112.0}, {"x": 44, "y": 46201.0}, {"x": 35, "y": 20235.0}, {"x": 49, "y": 24107.0}, {"x": 25, "y": 15818.0}, {"x": 30, "y": 18259.0}, {"x": 19, "y": 34780.0}, {"x": 64, "y": 27038.0}, {"x": 23, "y": 18034.0}, {"x": 56, "y": 43814.0}, {"x": 35, "y": 19362.0}, {"x": 42, "y": 43896.0}, {"x": 18, "y": 36308.0}, {"x": 33, "y": 38283.0}, {"x": 34, "y": 18972.0}, {"x": 64, "y": 49578.0}, {"x": 36, "y": 38709.0}, {"x": 56, "y": 22413.0}, {"x": 59, "y": 25679.0}, {"x": 27, "y": 18246.0}, {"x": 52, "y": 47270.0}, {"x": 53, "y": 23245.0}, {"x": 64, "y": 47291.0}, {"x": 22, "y": 35596.0}, {"x": 44, "y": 38999.0}, {"x": 53, "y": 21196.0}, {"x": 19, "y": 17081.0}, {"x": 51, "y": 47463.0}, {"x": 30, "y": 17362.0}, {"x": 52, "y": 24870.0}, {"x": 18, "y": 34618.0}, {"x": 40, "y": 22332.0}, {"x": 61, "y": 48518.0}, {"x": 39, "y": 40104.0}, {"x": 44, "y": 42983.0}, {"x": 47, "y": 44203.0}, {"x": 59, "y": 47897.0}, {"x": 19, "y": 17469.0}, {"x": 33, "y": 16776.0}, {"x": 43, "y": 21774.0}, {"x": 36, "y": 20774.0}, {"x": 38, "y": 15821.0}, {"x": 18, "y": 12829.0}, {"x": 47, "y": 23065.0}, {"x": 47, "y": 41676.0}, {"x": 41, "y": 40274.0}, {"x": 25, "y": 36125.0}, {"x": 43, "y": 45863.0}, {"x": 19, "y": 16451.0}, {"x": 63, "y": 29523.0}, {"x": 28, "y": 51195.0}, {"x": 45, "y": 21099.0}, {"x": 48, "y": 21224.0}, {"x": 52, "y": 24394.0}, {"x": 32, "y": 17496.0}, {"x": 19, "y": 33308.0}, {"x": 42, "y": 32787.0}, {"x": 36, "y": 37743.0}, {"x": 62, "y": 46718.0}, {"x": 47, "y": 42211.0}, {"x": 19, "y": 34829.0}, {"x": 43, "y": 21771.0}], "nonsmoker": [{"x": 19, "y": 1646.0}, {"x": 57, "y": 11353.0}, {"x": 51, "y": 8799.0}, {"x": 49, "y": 10381.0}, {"x": 21, "y": 2103.0}, {"x": 49, "y": 9305.0}, {"x": 56, "y": 11658.0}, {"x": 27, "y": 3071.0}, {"x": 60, "y": 12630.0}, {"x": 54, "y": 11538.0}, {"x": 39, "y": 6338.0}, {"x": 42, "y": 7051.0}, {"x": 18, "y": 1137.0}, {"x": 48, "y": 8968.0}, {"x": 33, "y": 21984.0}, {"x": 35, "y": 6414.0}, {"x": 59, "y": 28288.0}, {"x": 62, "y": 13463.0}, {"x": 52, "y": 9723.0}, {"x": 46, "y": 8027.0}, {"x": 50, "y": 8444.0}, {"x": 18, "y": 2203.0}, {"x": 41, "y": 6665.0}, {"x": 43, "y": 8606.0}, {"x": 48, "y": 8284.0}, {"x": 33, "y": 5375.0}, {"x": 30, "y": 3645.0}, {"x": 56, "y": 11674.0}, {"x": 34, "y": 11738.0}, {"x": 53, "y": 9863.0}, {"x": 58, "y": 11856.0}, {"x": 28, "y": 4349.0}, {"x": 58, "y": 11744.0}, {"x": 50, "y": 19749.0}, {"x": 59, "y": 12347.0}, {"x": 31, "y": 4932.0}, {"x": 60, "y": 30260.0}, {"x": 20, "y": 27724.0}, {"x": 51, "y": 9644.0}, {"x": 57, "y": 14394.0}, {"x": 61, "y": 12558.0}, {"x": 55, "y": 11881.0}, {"x": 24, "y": 2353.0}, {"x": 45, "y": 9102.0}, {"x": 32, "y": 3994.0}, {"x": 60, "y": 12645.0}, {"x": 23, "y": 22396.0}, {"x": 18, "y": 1149.0}, {"x": 29, "y": 3367.0}, {"x": 61, "y": 13143.0}, {"x": 23, "y": 2690.0}, {"x": 60, "y": 12741.0}, {"x": 48, "y": 8765.0}, {"x": 49, "y": 10264.0}, {"x": 57, "y": 22192.0}, {"x": 19, "y": 2709.0}, {"x": 19, "y": 1743.0}, {"x": 54, "y": 12480.0}, {"x": 62, "y": 13352.0}, {"x": 23, "y": 2789.0}, {"x": 29, "y": 2867.0}, {"x": 56, "y": 11071.0}, {"x": 50, "y": 10494.0}, {"x": 21, "y": 3167.0}, {"x": 55, "y": 12270.0}, {"x": 53, "y": 10942.0}, {"x": 24, "y": 1978.0}, {"x": 42, "y": 7045.0}, {"x": 49, "y": 10371.0}, {"x": 41, "y": 7749.0}, {"x": 60, "y": 13920.0}, {"x": 48, "y": 8871.0}, {"x": 19, "y": 1628.0}, {"x": 53, "y": 9488.0}, {"x": 51, "y": 9861.0}, {"x": 56, "y": 12266.0}, {"x": 58, "y": 12236.0}, {"x": 35, "y": 6402.0}, {"x": 57, "y": 11357.0}, {"x": 19, "y": 1737.0}, {"x": 45, "y": 7441.0}, {"x": 18, "y": 2219.0}, {"x": 55, "y": 11287.0}, {"x": 34, "y": 4415.0}, {"x": 26, "y": 3982.0}, {"x": 19, "y": 1632.0}, {"x": 63, "y": 15555.0}, {"x": 24, "y": 12610.0}, {"x": 19, "y": 1254.0}, {"x": 33, "y": 6666.0}, {"x": 63, "y": 14255.0}, {"x": 35, "y": 19497.0}, {"x": 20, "y": 2262.0}, {"x": 50, "y": 8932.0}, {"x": 48, "y": 10737.0}, {"x": 38, "y": 5977.0}, {"x": 46, "y": 7147.0}, {"x": 48, "y": 9563.0}, {"x": 55, "y": 13047.0}, {"x": 44, "y": 7740.0}, {"x": 19, "y": 1832.0}, {"x": 38, "y": 7145.0}, {"x": 46, "y": 24603.0}, {"x": 19, "y": 1732.0}, {"x": 19, "y": 1633.0}, {"x": 18, "y": 1632.0}, {"x": 52, "y": 9991.0}, {"x": 45, "y": 7935.0}, {"x": 62, "y": 14043.0}, {"x": 35, "y": 5934.0}, {"x": 64, "y": 14314.0}, {"x": 58, "y": 13607.0}, {"x": 55, "y": 10595.0}, {"x": 18, "y": 1719.0}, {"x": 41, "y": 7955.0}, {"x": 18, "y": 1728.0}, {"x": 37, "y": 6686.0}, {"x": 44, "y": 7153.0}, {"x": 26, "y": 3877.0}, {"x": 52, "y": 33472.0}, {"x": 55, "y": 11879.0}, {"x": 48, "y": 7804.0}, {"x": 42, "y": 5970.0}, {"x": 51, "y": 9964.0}, {"x": 51, "y": 9958.0}, {"x": 48, "y": 9447.0}, {"x": 23, "y": 1827.0}, {"x": 33, "y": 3704.0}, {"x": 58, "y": 11947.0}, {"x": 26, "y": 2904.0}, {"x": 32, "y": 6129.0}, {"x": 21, "y": 1534.0}, {"x": 54, "y": 10436.0}, {"x": 56, "y": 11073.0}, {"x": 36, "y": 5469.0}, {"x": 32, "y": 5152.0}, {"x": 28, "y": 3557.0}, {"x": 27, "y": 3353.0}, {"x": 38, "y": 6555.0}, {"x": 23, "y": 2417.0}, {"x": 59, "y": 14591.0}, {"x": 28, "y": 3733.0}, {"x": 35, "y": 5847.0}, {"x": 60, "y": 12731.0}, {"x": 61, "y": 13616.0}, {"x": 49, "y": 8988.0}, {"x": 42, "y": 7651.0}, {"x": 25, "y": 3594.0}, {"x": 22, "y": 2156.0}, {"x": 47, "y": 8570.0}, {"x": 46, "y": 7527.0}, {"x": 41, "y": 9222.0}, {"x": 61, "y": 14120.0}, {"x": 31, "y": 3260.0}, {"x": 19, "y": 2709.0}, {"x": 38, "y": 6933.0}, {"x": 51, "y": 9265.0}, {"x": 36, "y": 7244.0}, {"x": 19, "y": 2135.0}, {"x": 51, "y": 11520.0}, {"x": 46, "y": 8233.0}, {"x": 41, "y": 6290.0}, {"x": 41, "y": 7372.0}, {"x": 54, "y": 12094.0}, {"x": 39, "y": 23563.0}, {"x": 38, "y": 6458.0}, {"x": 18, "y": 1616.0}, {"x": 40, "y": 6600.0}, {"x": 42, "y": 7047.0}, {"x": 20, "y": 1984.0}, {"x": 57, "y": 11455.0}, {"x": 30, "y": 4138.0}, {"x": 24, "y": 17128.0}, {"x": 26, "y": 3988.0}, {"x": 32, "y": 4671.0}, {"x": 55, "y": 10796.0}, {"x": 18, "y": 1136.0}, {"x": 20, "y": 2460.0}, {"x": 55, "y": 12269.0}, {"x": 27, "y": 4828.0}, {"x": 19, "y": 1636.0}, {"x": 24, "y": 1970.0}, {"x": 32, "y": 4357.0}, {"x": 23, "y": 10796.0}, {"x": 63, "y": 13888.0}, {"x": 21, "y": 3580.0}, {"x": 59, "y": 14001.0}, {"x": 34, "y": 6753.0}, {"x": 54, "y": 12097.0}, {"x": 55, "y": 10215.0}, {"x": 19, "y": 1640.0}, {"x": 46, "y": 8343.0}, {"x": 32, "y": 4074.0}, {"x": 47, "y": 8084.0}, {"x": 21, "y": 2027.0}, {"x": 62, "y": 31620.0}, {"x": 24, "y": 1982.0}, {"x": 55, "y": 20781.0}, {"x": 43, "y": 18806.0}, {"x": 47, "y": 8551.0}, {"x": 25, "y": 18218.0}, {"x": 64, "y": 14211.0}, {"x": 53, "y": 10960.0}, {"x": 31, "y": 4441.0}, {"x": 60, "y": 12143.0}, {"x": 51, "y": 10560.0}, {"x": 26, "y": 2897.0}, {"x": 22, "y": 2755.0}, {"x": 19, "y": 1625.0}, {"x": 44, "y": 8219.0}, {"x": 42, "y": 6941.0}, {"x": 46, "y": 8241.0}, {"x": 19, "y": 2137.0}, {"x": 35, "y": 5228.0}, {"x": 53, "y": 10356.0}, {"x": 53, "y": 10065.0}, {"x": 18, "y": 1141.0}, {"x": 60, "y": 13012.0}, {"x": 45, "y": 7446.0}, {"x": 43, "y": 8410.0}, {"x": 40, "y": 6987.0}, {"x": 37, "y": 6406.0}, {"x": 33, "y": 5354.0}, {"x": 19, "y": 1252.0}, {"x": 45, "y": 8528.0}, {"x": 33, "y": 5261.0}, {"x": 20, "y": 2362.0}, {"x": 46, "y": 9415.0}, {"x": 50, "y": 10118.0}, {"x": 57, "y": 12646.0}, {"x": 47, "y": 20879.0}, {"x": 25, "y": 2633.0}, {"x": 38, "y": 6067.0}, {"x": 55, "y": 10704.0}, {"x": 64, "y": 30167.0}, {"x": 64, "y": 13831.0}, {"x": 53, "y": 9870.0}, {"x": 23, "y": 2899.0}, {"x": 42, "y": 7050.0}, {"x": 26, "y": 24672.0}, {"x": 25, "y": 3206.0}, {"x": 40, "y": 7077.0}, {"x": 38, "y": 5484.0}, {"x": 45, "y": 8605.0}, {"x": 29, "y": 3944.0}, {"x": 41, "y": 6776.0}, {"x": 29, "y": 4923.0}, {"x": 36, "y": 5266.0}, {"x": 28, "y": 4340.0}, {"x": 18, "y": 1132.0}, {"x": 38, "y": 6641.0}, {"x": 31, "y": 4950.0}, {"x": 20, "y": 1770.0}, {"x": 24, "y": 2481.0}, {"x": 36, "y": 4400.0}, {"x": 64, "y": 13823.0}, {"x": 60, "y": 13204.0}, {"x": 49, "y": 9290.0}, {"x": 63, "y": 13881.0}, {"x": 48, "y": 11034.0}, {"x": 51, "y": 9876.0}, {"x": 29, "y": 3947.0}, {"x": 41, "y": 7358.0}, {"x": 57, "y": 11831.0}, {"x": 27, "y": 3693.0}, {"x": 59, "y": 14383.0}, {"x": 40, "y": 6594.0}, {"x": 28, "y": 4429.0}, {"x": 58, "y": 13019.0}, {"x": 58, "y": 11366.0}, {"x": 52, "y": 23046.0}, {"x": 22, "y": 2251.0}, {"x": 44, "y": 32109.0}, {"x": 28, "y": 3161.0}, {"x": 21, "y": 3280.0}, {"x": 41, "y": 5709.0}, {"x": 63, "y": 15162.0}, {"x": 64, "y": 14395.0}, {"x": 19, "y": 2131.0}, {"x": 26, "y": 3484.0}, {"x": 42, "y": 7640.0}, {"x": 32, "y": 4454.0}, {"x": 19, "y": 2711.0}, {"x": 23, "y": 3501.0}, {"x": 55, "y": 10714.0}, {"x": 26, "y": 2681.0}, {"x": 18, "y": 2217.0}, {"x": 50, "y": 10107.0}, {"x": 40, "y": 8163.0}, {"x": 54, "y": 10339.0}, {"x": 49, "y": 9801.0}, {"x": 25, "y": 2523.0}, {"x": 28, "y": 4338.0}, {"x": 49, "y": 10157.0}, {"x": 46, "y": 9433.0}, {"x": 46, "y": 8825.0}, {"x": 34, "y": 5012.0}, {"x": 44, "y": 8116.0}, {"x": 39, "y": 6710.0}, {"x": 53, "y": 9504.0}, {"x": 41, "y": 5700.0}, {"x": 50, "y": 25657.0}, {"x": 38, "y": 6653.0}, {"x": 49, "y": 10269.0}, {"x": 62, "y": 15020.0}, {"x": 22, "y": 2742.0}, {"x": 37, "y": 6436.0}, {"x": 58, "y": 11938.0}, {"x": 41, "y": 7262.0}, {"x": 48, "y": 28469.0}, {"x": 53, "y": 20463.0}, {"x": 61, "y": 12574.0}, {"x": 29, "y": 3736.0}, {"x": 33, "y": 4796.0}, {"x": 57, "y": 12032.0}, {"x": 46, "y": 8334.0}, {"x": 45, "y": 9095.0}, {"x": 57, "y": 11566.0}, {"x": 20, "y": 1880.0}, {"x": 20, "y": 2457.0}]}};
+</script>
+<script>
+/* ---------------- background: population density ridge ---------------- */
+(function(){
+  const canvas = document.getElementById('bgcanvas');
+  const ctx = canvas.getContext('2d');
+  const hero = document.querySelector('.hero');
+  let W,H,mx=0.5,my=0.5;
+  function resize(){
+    W = canvas.width = hero.clientWidth * devicePixelRatio;
+    H = canvas.height = hero.clientHeight * devicePixelRatio;
+    canvas.style.width = hero.clientWidth+'px';
+    canvas.style.height = hero.clientHeight+'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  hero.addEventListener('mousemove', (e)=>{
+    const r = hero.getBoundingClientRect();
+    mx = (e.clientX - r.left)/r.width;
+    my = (e.clientY - r.top)/r.height;
+  });
+
+  const counts = DATA.charges_hist.counts;
+  const cmax = Math.max(...counts);
+  const norm = counts.map(v=>v/cmax);
+
+  let t = 0;
+  function ridge(offsetT, amp, color, alphaBase, baseline){
+    ctx.beginPath();
+    const n = norm.length;
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const x = (i/(n-1)) * W;
+      const wobble = Math.sin((i*0.9)+offsetT)*amp*0.15;
+      const parallax = (mx-0.5)*36*devicePixelRatio;
+      const y = H*baseline - norm[i]*H*0.34 + wobble - (my-0.5)*24*devicePixelRatio;
+      pts.push([x,y]);
+    }
+    ctx.moveTo(pts[0][0], H);
+    pts.forEach(p=>ctx.lineTo(p[0],p[1]));
+    ctx.lineTo(pts[pts.length-1][0], H);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = alphaBase;
+    ctx.fill();
+  }
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    ctx.globalAlpha = 0.05;
+    ctx.strokeStyle = '#8DA0AC';
+    ctx.lineWidth = 1;
+    for(let gx=0; gx<W; gx+=W/12){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+    for(let gy=0; gy<H; gy+=H/8){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+    ridge(t, 10*devicePixelRatio, '#4FA69D', 0.16, 0.74);
+    ridge(t*0.8+1.5, 8*devicePixelRatio, '#D2673F', 0.10, 0.80);
+    ridge(t*0.6+3, 6*devicePixelRatio, '#72C9BF', 0.10, 0.86);
+
+    ctx.globalAlpha = 1;
+    t += 0.01;
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+Chart.defaults.color = '#8DA0AC';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.borderColor = '#28333E';
+
+/* hero stats */
+(function(){
+  const el = document.getElementById('heroStats');
+  const items = [
+    {v:DATA.r2_test.toFixed(3), l:'R\u00b2 on held-out policyholders'},
+    {v:'$'+Math.round(DATA.mae_test).toLocaleString(), l:'Mean absolute error'},
+    {v:DATA.n_rows.toLocaleString(), l:'Policyholders, one snapshot'},
+    {v:'6', l:'Intake factors used'},
+  ];
+  el.innerHTML = items.map(i=>`<div class="hstat"><div class="v num">${i.v}</div><div class="l">${i.l}</div></div>`).join('');
+})();
+
+/* actual vs predicted scatter */
+new Chart(document.getElementById('scatterChart'), {
+  type:'scatter',
+  data:{
+    datasets:[
+      {label:'Policyholder', data: DATA.actual.map((a,i)=>({x:a,y:DATA.predicted[i]})), backgroundColor:'rgba(79,166,157,0.55)', pointRadius:3.2},
+      {label:'Perfect estimate', type:'line', data:(()=>{const mn=Math.min(...DATA.actual), mx=Math.max(...DATA.actual); return [{x:mn,y:mn},{x:mx,y:mx}];})(), borderColor:'#8DA0AC', borderDash:[4,4], borderWidth:1.2, pointRadius:0}
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1E2934', borderColor:'#28333E', borderWidth:1, titleColor:'#E7ECEF', bodyColor:'#E7ECEF'}},
+    scales:{
+      x:{title:{display:true, text:'Actual charges (USD)'}, grid:{color:'#1E2934'}},
+      y:{title:{display:true, text:'Estimated charges (USD)'}, grid:{color:'#1E2934'}},
+    }
+  }
+});
+
+/* smoker effect callout + remaining drivers */
+(function(){
+  const c = DATA.coef;
+  const smokerEffect = -c.smoker; // yes=0/no=1 encoding, so flip sign
+  document.getElementById('smokerEffect').textContent = '+$'+Math.round(smokerEffect).toLocaleString();
+
+  const drivers = [
+    {label:'Each additional child', value: c.children},
+    {label:'Each BMI point', value: c.bmi},
+    {label:'Each year of age', value: c.age},
+    {label:'Sex, female vs male', value: c.sex},
+  ].sort((a,b)=>Math.abs(b.value)-Math.abs(a.value));
+  const maxAbs = Math.max(...drivers.map(d=>Math.abs(d.value)));
+  const el = document.getElementById('fiList');
+  el.innerHTML = drivers.map(d=>`
+    <div class="fi-row">
+      <div class="label">${d.label}</div>
+      <div class="fi-track"><div class="fi-fill" style="width:${(Math.abs(d.value)/maxAbs*100).toFixed(1)}%"></div></div>
+      <div class="pct num">${d.value>=0?'+':'-'}$${Math.abs(d.value).toFixed(0)}</div>
+    </div>`).join('');
+})();
+
+/* bmi scatter split by smoker */
+new Chart(document.getElementById('bmiScatter'), {
+  type:'scatter',
+  data:{
+    datasets:[
+      {label:'Smoker', data: DATA.scatter_bmi.smoker, backgroundColor:'rgba(210,103,63,0.6)', pointRadius:3},
+      {label:'Non-smoker', data: DATA.scatter_bmi.nonsmoker, backgroundColor:'rgba(79,166,157,0.5)', pointRadius:3},
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1E2934', borderColor:'#28333E', borderWidth:1, titleColor:'#E7ECEF', bodyColor:'#E7ECEF'}},
+    scales:{
+      x:{title:{display:true, text:'BMI'}, grid:{color:'#1E2934'}},
+      y:{title:{display:true, text:'Annual charges (USD)'}, grid:{color:'#1E2934'}},
+    }
+  }
+});
+
+/* small bar charts */
+function barChart(id, labels, values, color){
+  new Chart(document.getElementById(id), {
+    type:'bar',
+    data:{labels, datasets:[{data:values, backgroundColor:color, borderRadius:2, maxBarThickness:34}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1E2934', borderColor:'#28333E', borderWidth:1, titleColor:'#E7ECEF', bodyColor:'#E7ECEF'}},
+      scales:{ x:{grid:{display:false}}, y:{title:{display:true, text:'Avg charges (USD)'}, grid:{color:'#1E2934'}} }
+    }
+  });
+}
+barChart('barSmoker', ['Non-smoker','Smoker'], [DATA.avg_by_smoker.no, DATA.avg_by_smoker.yes], ['#4FA69D','#D2673F']);
+barChart('barRegion', Object.keys(DATA.avg_by_region), Object.values(DATA.avg_by_region), '#4FA69D');
+barChart('barChildren', Object.keys(DATA.avg_by_children), Object.values(DATA.avg_by_children), '#72C9BF');
+
+/* histogram of charges */
+new Chart(document.getElementById('histChart'), {
+  type:'bar',
+  data:{
+    labels: DATA.charges_hist.edges.slice(0,-1).map(e=>'$'+Math.round(e/1000)+'k'),
+    datasets:[{data:DATA.charges_hist.counts, backgroundColor:'rgba(79,166,157,0.55)', borderRadius:2}]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1E2934', borderColor:'#28333E', borderWidth:1, titleColor:'#E7ECEF', bodyColor:'#E7ECEF'}},
+    scales:{ x:{grid:{display:false}, title:{display:true,text:'Annual charges'}}, y:{title:{display:true,text:'Policyholders'}, grid:{color:'#1E2934'}} }
+  }
+});
+
+/* live predictor — exact trained linear model */
+(function(){
+  const panel = document.getElementById('inputPanel');
+  const r = DATA.feature_ranges;
+  const coef = DATA.coef;
+  const intercept = DATA.intercept;
+  const state = { age:Math.round(r.age[2]), bmi:r.bmi[2], children:Math.round(r.children[2]), sex:1, smoker:1, region:0 };
+
+  panel.innerHTML = `
+    <div class="slider-group">
+      <label>Age <span class="val" id="val_age">${state.age}</span></label>
+      <input type="range" min="${r.age[0]}" max="${r.age[1]}" step="1" value="${state.age}" id="in_age">
+    </div>
+    <div class="slider-group">
+      <label>BMI <span class="val" id="val_bmi">${state.bmi.toFixed(1)}</span></label>
+      <input type="range" min="${r.bmi[0]}" max="${r.bmi[1]}" step="0.1" value="${state.bmi}" id="in_bmi">
+    </div>
+    <div class="slider-group">
+      <label>Children <span class="val" id="val_children">${state.children}</span></label>
+      <input type="range" min="${r.children[0]}" max="${r.children[1]}" step="1" value="${state.children}" id="in_children">
+    </div>
+    <div class="slider-group">
+      <label>Sex</label>
+      <div class="toggle-row" id="in_sex">
+        <div class="opt" data-v="0">Male</div>
+        <div class="opt active" data-v="1">Female</div>
+      </div>
+    </div>
+    <div class="slider-group">
+      <label>Smoking status</label>
+      <div class="toggle-row" id="in_smoker">
+        <div class="opt" data-v="0">Smoker</div>
+        <div class="opt active" data-v="1">Non-smoker</div>
+      </div>
+    </div>
+    <div class="slider-group" style="margin-bottom:0;">
+      <label>Region</label>
+      <select id="in_region">
+        <option value="0">Southeast</option>
+        <option value="1">Southwest</option>
+        <option value="2">Northeast</option>
+        <option value="3">Northwest</option>
+      </select>
+    </div>
+  `;
+
+  document.getElementById('in_age').addEventListener('input', e=>{ state.age=+e.target.value; document.getElementById('val_age').textContent=state.age; predict(); });
+  document.getElementById('in_bmi').addEventListener('input', e=>{ state.bmi=+e.target.value; document.getElementById('val_bmi').textContent=state.bmi.toFixed(1); predict(); });
+  document.getElementById('in_children').addEventListener('input', e=>{ state.children=+e.target.value; document.getElementById('val_children').textContent=state.children; predict(); });
+  document.getElementById('in_region').addEventListener('change', e=>{ state.region=+e.target.value; predict(); });
+
+  function wireToggle(id, key){
+    const group = document.getElementById(id);
+    group.querySelectorAll('.opt').forEach(opt=>{
+      opt.addEventListener('click', ()=>{
+        group.querySelectorAll('.opt').forEach(o=>o.classList.remove('active'));
+        opt.classList.add('active');
+        state[key] = +opt.dataset.v;
+        predict();
+      });
+    });
+  }
+  wireToggle('in_sex','sex');
+  wireToggle('in_smoker','smoker');
+
+  function predict(){
+    const y = intercept + coef.age*state.age + coef.sex*state.sex + coef.bmi*state.bmi + coef.children*state.children + coef.smoker*state.smoker + coef.region*state.region;
+    const clamped = Math.max(0, y);
+    document.getElementById('predictedValue').textContent = '$'+Math.round(clamped).toLocaleString();
+    const mean = DATA.charges_range[2];
+    const pctDiff = ((clamped-mean)/mean*100);
+    const pEl = document.getElementById('predictedPct');
+    pEl.textContent = (pctDiff>=0?'+':'') + pctDiff.toFixed(0) + '% vs. population mean';
+    pEl.style.color = pctDiff>=0 ? 'var(--risk-bright)' : 'var(--safe)';
+  }
+  predict();
+
+  document.getElementById('popMean').textContent = '$'+Math.round(DATA.charges_range[2]).toLocaleString();
+  document.getElementById('popRange').textContent = '$'+Math.round(DATA.charges_range[0]).toLocaleString()+' – $'+Math.round(DATA.charges_range[1]).toLocaleString();
+})();
+
+/* method numbers */
+document.getElementById('mRows').textContent = DATA.n_rows.toLocaleString();
+document.getElementById('mSplit').textContent = DATA.n_train + ' / ' + DATA.n_test;
+document.getElementById('mR2train').textContent = DATA.r2_train.toFixed(4);
+document.getElementById('mR2test').textContent = DATA.r2_test.toFixed(4);
+document.getElementById('mMAE').textContent = '$'+Math.round(DATA.mae_test).toLocaleString();
+</script>
+</body>
+</html>
